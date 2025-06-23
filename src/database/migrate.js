@@ -16,15 +16,10 @@ async function createTables() {
     try {
         console.log('🚀 Iniciando criação das tabelas...');
 
-        // Criar extensão UUID se não existir
-        await client.query(`
-            CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-        `);
-
-        // Criar tabela de configurações
+        // Criar tabela de configurações sem usar extensão UUID
         await client.query(`
             CREATE TABLE IF NOT EXISTS system_configurations (
-                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                id SERIAL PRIMARY KEY,
                 config_key VARCHAR(100) NOT NULL UNIQUE,
                 config_value JSONB NOT NULL,
                 config_type VARCHAR(50) NOT NULL,

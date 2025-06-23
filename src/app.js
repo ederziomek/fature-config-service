@@ -173,9 +173,9 @@ class ConfigServiceApp {
 
     async start() {
         try {
-            // Testar conexão com banco antes de iniciar
-            const { createTables } = require('./database/migrate');
-            await createTables();
+            // Comentar migração automática - será feita manualmente no Railway
+            // const { createTables } = require('./database/migrate');
+            // await createTables();
             
             this.server.listen(this.port, this.host, () => {
                 logger.info(`🚀 Config Service iniciado em http://${this.host}:${this.port}`);

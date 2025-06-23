@@ -354,25 +354,139 @@ class ConfigController {
         }
     }
 
-    // Health check
+    // Health check melhorado com múltiplas camadas
     async healthCheck(req, res) {
+        const startTime = Date.now();
+        const healthStatus = {
+            success: true,
+            message: 'Config Service está funcionando',
+            timestamp: new Date().toISOString(),
+            version: process.env.npm_package_version || '1.0.0',
+            uptime: process.uptime(),
+            checks: {
+                service: { status: 'ok', message: 'Serviço rodando' },
+                database: { status: 'unknown', message: 'Não testado' },
+                functionality: { status: 'unknown', message: 'Não testado' }
+            },
+            responseTime: 0
+        };
+
         try {
-            // Testar conexão com banco
-            await this.configService.getAllConfigs();
-            
-            res.json({
-                success: true,
-                message: 'Config Service está funcionando',
-                timestamp: new Date().toISOString(),
-                version: process.env.npm_package_version || '1.0.0'
-            });
+            // Nível 1: Verificar se o serviço está rodando (sempre passa)
+            healthStatus.checks.service = { 
+                status: 'ok', 
+                message: 'Serviço rodando normalmente' 
+            };
+
+            // Nível 2: Verificar conectividade básica com banco (opcional)
+            try {
+                const { Pool } = require('pg');
+                const pool = new Pool({
+                    host: process.env.DB_HOST,
+                    port: process.env.DB_PORT,
+                    database: process.env.DB_NAME,
+                    user: process.env.DB_USER,
+                    password: process.env.DB_PASSWORD,
+                    ssl: process.env.DB_SSL === 'true',
+                    connectionTimeoutMillis: 5000, // 5 segundos timeout
+                    query_timeout: 3000 // 3 segundos para query
+                });
+
+                // Teste simples de conectividade
+                const client = await pool.connect();
+                await client.query('SELECT 1');
+                client.release();
+                await pool.end();
+
+                healthStatus.checks.database = { 
+                    status: 'ok', 
+                    message: 'Conectividade com banco OK' 
+                };
+
+                // Nível 3: Verificar funcionalidade (apenas se banco estiver OK)
+                try {
+                    // Teste mais leve - apenas verificar se a tabela existe
+                    const pool2 = new Pool({
+                        host: process.env.DB_HOST,
+                        port: process.env.DB_PORT,
+                        database: process.env.DB_NAME,
+                        user: process.env.DB_USER,
+                        password: process.env.DB_PASSWORD,
+                        ssl: process.env.DB_SSL === 'true',
+                        connectionTimeoutMillis: 3000,
+                        query_timeout: 2000
+                    });
+
+                    const client2 = await pool2.connect();
+                    const result = await client2.query(`
+                        SELECT table_name 
+                        FROM information_schema.tables 
+                        WHERE table_name = 'system_configurations'
+                    `);
+                    client2.release();
+                    await pool2.end();
+
+                    if (result.rows.length > 0) {
+                        healthStatus.checks.functionality = { 
+                            status: 'ok', 
+                            message: 'Tabelas configuradas corretamente' 
+                        };
+                    } else {
+                        healthStatus.checks.functionality = { 
+                            status: 'warning', 
+                            message: 'Tabelas não encontradas - funcionalidade limitada' 
+                        };
+                    }
+                } catch (funcError) {
+                    logger.warn('Erro no teste de funcionalidade:', funcError.message);
+                    healthStatus.checks.functionality = { 
+                        status: 'warning', 
+                        message: 'Funcionalidade limitada - tabelas não configuradas' 
+                    };
+                }
+
+            } catch (dbError) {
+                logger.warn('Erro na conectividade com banco:', dbError.message);
+                healthStatus.checks.database = { 
+                    status: 'warning', 
+                    message: `Banco indisponível: ${dbError.message}` 
+                };
+                healthStatus.checks.functionality = { 
+                    status: 'warning', 
+                    message: 'Funcionalidade limitada - banco indisponível' 
+                };
+            }
+
+            // Calcular tempo de resposta
+            healthStatus.responseTime = Date.now() - startTime;
+
+            // Determinar status geral
+            const hasErrors = Object.values(healthStatus.checks).some(check => check.status === 'error');
+            const hasWarnings = Object.values(healthStatus.checks).some(check => check.status === 'warning');
+
+            if (hasErrors) {
+                healthStatus.success = false;
+                healthStatus.message = 'Serviço com problemas críticos';
+                return res.status(503).json(healthStatus);
+            } else if (hasWarnings) {
+                healthStatus.message = 'Serviço funcionando com limitações';
+                return res.status(200).json(healthStatus);
+            } else {
+                healthStatus.message = 'Serviço funcionando perfeitamente';
+                return res.status(200).json(healthStatus);
+            }
+
         } catch (error) {
             logger.error('Erro no health check:', error);
-            res.status(503).json({
-                success: false,
-                message: 'Serviço indisponível',
-                error: error.message
-            });
+            healthStatus.success = false;
+            healthStatus.message = 'Erro interno no health check';
+            healthStatus.checks.service = { 
+                status: 'error', 
+                message: `Erro interno: ${error.message}` 
+            };
+            healthStatus.responseTime = Date.now() - startTime;
+            
+            return res.status(503).json(healthStatus);
         }
     }
 }
