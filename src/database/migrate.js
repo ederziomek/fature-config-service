@@ -73,8 +73,8 @@ async function insertInitialConfigs(client) {
         {
             config_key: 'cpa_level_amounts',
             config_value: {
-                level_1: 50.00,
-                level_2: 20.00,
+                level_1: 35.00,
+                level_2: 10.00,
                 level_3: 5.00,
                 level_4: 5.00,
                 level_5: 5.00
