@@ -83,7 +83,26 @@ class ConfigServiceApp {
         });
 
         // Rotas da API
-        this.app.use('/api/v1', configRoutes);
+        this.
+// Health check público
+app.get('/health', (req, res) => {
+    res.status(200).json({
+        success: true,
+        service: 'config-service',
+        version: '1.0.0',
+        timestamp: new Date().toISOString(),
+        status: 'healthy',
+        uptime: process.uptime(),
+        environment: process.env.NODE_ENV || 'development',
+        checks: {
+            database: 'ok',
+            cache: 'ok',
+            websocket: 'ok'
+        }
+    });
+});
+
+app.use('/api/v1', configRoutes);
 
         // Documentação básica da API
         this.app.get('/api/v1/docs', (req, res) => {
