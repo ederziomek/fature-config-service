@@ -66,6 +66,42 @@ class ConfigServiceApp {
     }
 
     setupRoutes() {
+        // Health check público
+        this.app.get('/health', (req, res) => {
+            res.status(200).json({
+                success: true,
+                service: 'config-service',
+                version: '1.0.0',
+                timestamp: new Date().toISOString(),
+                status: 'healthy',
+                uptime: process.uptime(),
+                environment: process.env.NODE_ENV || 'development',
+                checks: {
+                    database: 'ok',
+                    cache: 'ok',
+                    websocket: 'ok'
+                }
+            });
+        });
+
+        // Health check API v1 padronizado
+        this.app.get('/api/v1/health', (req, res) => {
+            res.status(200).json({
+                success: true,
+                service: 'config-service',
+                version: '1.0.0',
+                timestamp: new Date().toISOString(),
+                status: 'healthy',
+                uptime: process.uptime(),
+                environment: process.env.NODE_ENV || 'development',
+                checks: {
+                    database: 'ok',
+                    cache: 'ok',
+                    websocket: 'ok'
+                }
+            });
+        });
+
         // Rota raiz
         this.app.get('/', (req, res) => {
             res.json({
@@ -83,26 +119,7 @@ class ConfigServiceApp {
         });
 
         // Rotas da API
-        this.
-// Health check público
-app.get('/health', (req, res) => {
-    res.status(200).json({
-        success: true,
-        service: 'config-service',
-        version: '1.0.0',
-        timestamp: new Date().toISOString(),
-        status: 'healthy',
-        uptime: process.uptime(),
-        environment: process.env.NODE_ENV || 'development',
-        checks: {
-            database: 'ok',
-            cache: 'ok',
-            websocket: 'ok'
-        }
-    });
-});
-
-app.use('/api/v1', configRoutes);
+        this.app.use('/api/v1', configRoutes);
 
         // Documentação básica da API
         this.app.get('/api/v1/docs', (req, res) => {
